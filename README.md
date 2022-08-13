@@ -1,2 +1,2 @@
 # old-tom-morris
-Golf CLI
+An Ode to Golf History

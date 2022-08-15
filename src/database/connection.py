@@ -1,4 +1,6 @@
 
+from dotenv import load_dotenv
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -9,11 +11,16 @@ from database.schema import Tournament
 from database.schema import TournamentPlayerResult
 
 
+load_dotenv('../../../.env')
+DB_USER = os.getenv('POSTGRES_USER')
+DB_PW = os.getenv('POSTGRES_PASSWORD')
+DB_NAME = os.getenv('golf_db')
+
 Session = None
 
 
 def get_db_session():
-    db_conn_string = f'postgres://...'
+    db_conn_string = f'postgres://{DB_USER}:{DB_PW}@localhost:5432/{DB_NAME}'
 
     engine = create_engine(
         db_conn_string,

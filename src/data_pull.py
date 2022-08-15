@@ -3,14 +3,48 @@ import requests
 from bs4 import BeautifulSoup
 
 from database import connection as db_connection
+from database.schema import Course as DB_Course
 from database.schema import EventType as DB_EventType
 from database.schema import Tournament as DB_Tournament
 
+from data_sources import courses
 from data_sources import the_open
 
 
-def pull_data(data_source):
-    page = requests.get(data_source['url'])
+def init_event_and_courses_data():
+    session = db_connection.get_db_session()
+    
+    try:
+        open_event_type_exists = session.query(DB_EventType).filter(name = 'The Open').first()
+        if not open_event_type_exists:
+            open_event_type = DB_EventType(
+                name = 'The Open'
+            )
+            session.add(open_event_type)
+
+        for course in courses.COURSES:
+            db_course_exists = session.query(DB_Course).filter(name = course.name).first()
+            if db_course_exists:
+                continue
+
+            db_course = DB_Course(
+                name = course.name
+            )
+            session.add(db_course)
+
+        session.commit()
+
+    except Exception as e:
+        session.rollback()
+        print(f'Failed to save to DB: {e}')
+
+    finally:
+        session.close()
+
+
+def pull_open_data(open_event):
+    
+    page = requests.get(open_event['url'])
 
     soup = BeautifulSoup(page.content, 'html.parser')
     results = soup.find(id='leaderboard')
@@ -19,7 +53,7 @@ def pull_data(data_source):
     # The Open Leaderboard slots are as following:
     # Player Name | Place | Rd1 | Rd2 | Rd3 | Rd4 | Total
     print('')
-    print(f'**** The Open - {data_source["year"]} ****')
+    print(f'**** The Open - {open_event["year"]} ****')
     for row in leaderboard_rows:
         player_info = row.find_all('div', 'final-leaderboard__content')
         
@@ -51,25 +85,9 @@ def pull_data(data_source):
 
 
 def pull_the_open_data():
-    # # URL = 'https://www.theopen.com/previous-opens/1st-open-prestwick-1860/'
-    # # URL = 'https://www.theopen.com/previous-opens/2nd-open-prestwick-1861/'
-    # URL = 'https://www.theopen.com/previous-opens/138th-open-turnberry-2009/'
-    
-    for data_source in the_open.THE_OPEN_DATA:
-        pull_data(data_source)
-    
-# def save_to_rds(tournament_id):
-#     session = db_connection.get_db_session()
-
-#     try:
-#         tournament = session.squery(DB_Tournament).filter(id == tournament_id).first()
-
-#     except Exception as e:
-#         session.rollback()
-#         print(f'Failed to save to rds: {e}')
-
-#     finally:
-#         session.close()
+    init_event_and_courses_data()
+    for event in the_open.THE_OPEN_DATA:
+        pull_event_data(event)
 
 
 def run_data_init():
